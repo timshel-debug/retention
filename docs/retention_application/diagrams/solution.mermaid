@@ -1,0 +1,103 @@
+%% solution.mermaid
+%% Legend:
+%% - Solid lines: data flow / invocation
+%% - Dashed lines: optional / future integration boundary
+
+%% C4 Context
+C4Context
+title Release Retention - C4 Context
+Person(caller, "Caller", "Invokes retention evaluation with input sets and n")
+System(retention, "Release Retention Engine", "Determines releases to keep; outputs decision log")
+System_Ext(devops, "DevOps Deploy Core", "Source of projects/environments/releases/deployments")
+
+Rel(caller, retention, "EvaluateRetention(n, inputs)")
+Rel(devops, retention, "Provides input sets")
+
+%% C4 Container
+C4Container
+title Release Retention - C4 Container
+Person(caller2, "Caller", "Runs retention evaluation")
+System_Boundary(boundary, "Release Retention Engine") {
+  Container(lib, "Retention Engine Library", ".NET class library", "EvaluateRetention use case + domain policy")
+  Container(optionalHost, "Optional Host", ".NET (optional)", "Boundary-only catch/log (not required)")
+}
+System_Ext(core, "DevOps Deploy Core", "Produces projects/environments/releases/deployments")
+
+Rel(caller2, lib, "Call EvaluateRetention()")
+Rel(core, lib, "Supply input sets")
+
+%% Sequence: Primary Flow
+sequenceDiagram
+  autonumber
+  participant Caller as Caller
+  participant App as EvaluateRetentionUseCase
+  participant Dom as RetentionPolicyEvaluator
+
+  Caller->>App: EvaluateRetention(inputs, n)
+  App->>App: Validate n>=0
+  App->>Dom: EvaluateAll(projects, envs, releases, deployments, n)
+  Dom->>Dom: Validate refs; group by (ProjectId, EnvironmentId, ReleaseId)
+  Dom->>Dom: Compute max(DeployedAt); rank; select top n per (ProjectId, EnvironmentId)
+  Dom-->>App: Selections + reasons + diagnostics
+  App-->>Caller: RetentionResult(KeptReleases, DecisionLog)
+
+%% ER / Data Model
+erDiagram
+  PROJECT ||--o{ RELEASE : has
+  RELEASE ||--o{ DEPLOYMENT : deployed_as
+  ENVIRONMENT ||--o{ DEPLOYMENT : target
+
+  PROJECT {
+    string Id
+    string Name
+  }
+  ENVIRONMENT {
+    string Id
+    string Name
+  }
+  RELEASE {
+    string Id
+    string ProjectId
+    string Version
+    datetime Created
+  }
+  DEPLOYMENT {
+    string Id
+    string ReleaseId
+    string EnvironmentId
+    datetime DeployedAt
+  }
+
+%% Deployment with Trust Boundaries
+flowchart TB
+  subgraph TB1["Trust Boundary: DevOps Deploy Core"]
+    Core[(DevOps Deploy Core)]
+  end
+
+  subgraph TB2["Trust Boundary: Retention Engine"]
+    Lib[Retention Engine Library]
+  end
+
+  Core -->|Input sets| Lib
+
+%% Observability (Addendum)
+sequenceDiagram
+  participant Host as Host Process
+  participant Lib as Retention Library
+  participant OTel as OTel SDK
+  participant Collector as OTel Collector (optional)
+  Host->>OTel: Start trace (Activity)
+  Host->>Lib: EvaluateRetention(n, inputs)
+  Lib->>OTel: Emit spans + metrics
+  Lib-->>Host: RetentionResult + DecisionLog
+  OTel-->>Collector: Export traces/metrics
+
+%% Coordinated deletion (Addendum)
+sequenceDiagram
+  participant Host as Host Process
+  participant Lib as Retention Library
+  participant Coord as IReleaseDeletionCoordinator
+  Host->>Lib: EvaluateRetention(n, inputs)
+  Lib-->>Host: RetentionResult
+  Host->>Coord: ExecuteDeletion(DeletionPlan)
+  Coord-->>Host: DeletionExecutionResult
