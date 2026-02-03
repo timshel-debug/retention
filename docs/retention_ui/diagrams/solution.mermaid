@@ -1,0 +1,10 @@
+%% C4 Container (UI)
+C4Container
+title Release Retention Console (UI) - Containers
+Person(operator, "Operator", "Browser user")
+System_Boundary(s1, "Retention Console") {
+  Container(spa, "React SPA", "React + TypeScript", "Dataset editor, validation, results, export")
+}
+System_Ext(api, "Retention API", "ASP.NET Core", "Validate/evaluate endpoints")
+Rel(operator, spa, "Uses", "Browser")
+Rel(spa, api, "Calls", "HTTPS/JSON")

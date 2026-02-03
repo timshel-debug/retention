@@ -1,0 +1,86 @@
+.errorPanel {
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.serverError {
+  background-color: #fee2e2;
+  border-color: #fecaca;
+}
+
+.networkError {
+  background-color: #fef3c7;
+  border-color: #fde68a;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.icon {
+  font-size: 1.25rem;
+}
+
+.title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.dismissButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  color: #666;
+}
+
+.dismissButton:hover {
+  color: #333;
+}
+
+.message {
+  margin-bottom: 0.5rem;
+  color: #7f1d1d;
+}
+
+.hint {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.metadata {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #fecaca;
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #9ca3af;
+}
+
+.errorCode {
+  color: #ef4444;
+}
+
+.traceId {
+  color: #6b7280;
+}
+
+.errorAlert {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
