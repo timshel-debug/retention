@@ -1,0 +1,12 @@
+%% C4 Container (API)
+C4Container
+title Release Retention Service (API) - Containers
+Person(client, "Client", "UI/Automation")
+System_Boundary(s1, "Retention Service") {
+  Container(api, "ASP.NET Core API", "ASP.NET Core", "REST, ProblemDetails, OpenAPI")
+  Container(app, "Application", ".NET", "Use cases: validate/evaluate; normalization")
+  Container(domain, "Domain Evaluator", ".NET", "Retention evaluation + decision log")
+}
+Rel(client, api, "Calls", "HTTPS/JSON")
+Rel(api, app, "Invokes", "in-process")
+Rel(app, domain, "Calls", "in-process")

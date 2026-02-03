@@ -1,0 +1,211 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 6px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1a1a);
+}
+
+.loadingText {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.placeholder {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #888);
+  text-align: center;
+  background-color: var(--color-surface-muted, #f5f5f5);
+  border-radius: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-info-text, #1e40af);
+  background-color: var(--color-info-bg, #dbeafe);
+  border-radius: 100px;
+}
+
+.diagnostics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #666);
+  background-color: var(--color-surface-muted, #f9f9f9);
+  border-radius: 4px;
+}
+
+.warningText {
+  color: var(--color-warning-text, #92400e);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1a1a);
+}
+
+.emptyMessage {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #888);
+  text-align: center;
+  background-color: var(--color-surface-muted, #f5f5f5);
+  border-radius: 4px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border-light, #e8e8e8);
+  border-radius: 4px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light, #e8e8e8);
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--color-text-secondary, #4a4a4a);
+  background-color: var(--color-surface-muted, #f5f5f5);
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background-color: var(--color-row-hover, #f9f9f9);
+}
+
+.monoCell {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.75rem;
+}
+
+.centerCell {
+  text-align: center;
+}
+
+.details {
+  border: 1px solid var(--color-border-light, #e8e8e8);
+  border-radius: 4px;
+}
+
+.summary {
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #666);
+  background-color: var(--color-surface-muted, #f9f9f9);
+  cursor: pointer;
+  user-select: none;
+}
+
+.summary:hover {
+  background-color: var(--color-surface-hover, #f0f0f0);
+}
+
+.decisionList {
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.decisionItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--color-border-light, #e8e8e8);
+}
+
+.decisionItem:last-child {
+  border-bottom: none;
+}
+
+.decisionItem.kept {
+  border-left: 3px solid var(--color-success, #16a34a);
+}
+
+.decisionItem.diagnostic {
+  border-left: 3px solid var(--color-warning, #f59e0b);
+}
+
+.decisionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.decisionCode {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: 500;
+  color: var(--color-text-primary, #1a1a1a);
+}
+
+.decisionRank {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #888);
+}
+
+.decisionText {
+  color: var(--color-text-primary, #333);
+}
+
+.decisionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #888);
+}
+
+.decisionMeta span {
+  white-space: nowrap;
+}
