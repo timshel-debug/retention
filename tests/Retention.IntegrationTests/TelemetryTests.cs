@@ -11,6 +11,7 @@ namespace Retention.IntegrationTests;
 /// Tests for observability instrumentation using ActivitySource.
 /// No OpenTelemetry exporter required - uses ActivityListener directly.
 /// </summary>
+[Collection("Telemetry")]
 public class TelemetryTests : IDisposable
 {
     private readonly EvaluateRetentionService _service = new();
