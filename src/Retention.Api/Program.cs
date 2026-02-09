@@ -6,6 +6,7 @@ using Retention.Api.Middleware;
 using Retention.Api.RateLimiting;
 using Retention.Api.Services;
 using Retention.Application;
+using Retention.Application.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +65,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Register application services
-builder.Services.AddSingleton<EvaluateRetentionService>();
+builder.Services.AddRetentionApplication();
 builder.Services.AddSingleton<IRetentionEvaluator, RetentionEvaluatorAdapter>();
 builder.Services.AddSingleton<IDatasetValidator, DatasetValidatorService>();
 
