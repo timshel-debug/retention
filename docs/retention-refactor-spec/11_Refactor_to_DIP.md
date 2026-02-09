@@ -1,321 +1,370 @@
-# Dependency Inversion Refactor — Requirements Specification (Retention)
+## Definition of Done (DIP across this repo)
 
-## 1) Scope and intent
-
-**Objective:** Apply the **Dependency Inversion Principle (DIP)** across the Retention solution so that:
-
-* **Application/Domain code does not create its own dependency graph** (no “newing up” service dependencies).
-* All **service dependencies are expressed as abstractions** (interfaces) and are **wired in a composition root at startup** (ASP.NET Core `Program.cs` via `IServiceCollection`).
-* The codebase becomes easier to test, reason about, and evolve without “concrete coupling drift”.
-
-**In-scope projects**
-
-* `src/Retention.Api` (composition root + HTTP boundary)
-* `src/Retention.Application` (orchestration + mapping + validation + evaluation pipeline)
-* `src/Retention.Domain` (policy evaluation + ranking/selection strategies)
-
-**Out of scope**
-
-* Cosmetic refactors not related to dependency inversion (naming, formatting).
-* Re-architecting the domain model or changing external API contracts (unless required to preserve DIP constraints).
+* **All runtime composition happens in the composition root** (DI registration at startup), not inside application/domain service constructors.
+* **No “service graph wiring” via `new`** inside `Retention.Application` or `Retention.Domain` (value objects/DTOs excluded).
+* **Application + domain services are resolved via interfaces** where they are consumed (especially from `Retention.Api`).
+* `dotnet test` passes for **UnitTests + Api.IntegrationTests**; benchmarks still build.
 
 ---
 
-## 2) Definitions (normative)
+## Slice plan (implementation-ready)
 
-* **Composition Root:** The executable entrypoint where the object graph is composed (ASP.NET Core: `Retention.Api/Program.cs`). Only the composition root may “choose” implementations.
-* **Service dependency:** A collaborator that provides behaviour and could vary by environment or policy (e.g., evaluator, builder, specification, mapper, telemetry).
-* **Acceptable `new`:**
+### SLICE-DIP-000 — Baseline inventory + rules-of-the-road (docs only)
 
-  * Value objects / records / DTOs / results
-  * Collections
-  * Pure algorithmic helpers with no external coupling
-  * **Within the composition root only** for wiring (factories/decorators)
+**Goal:** Make the refactor explicit and deterministic.
 
----
+**Model:** gpt-5 mini — fast, precise doc/update work.
 
-## 3) Current concrete-coupling inventory (must be eliminated in production code)
+```text
+TASK (SLICE-DIP-000)
+- Add docs/di-refactor/00_DipRefactorPlan.md documenting:
+  - What counts as a “service” in this repo (Application/Domain classes registered in DI)
+  - What is exempt (records/entities/DTOs/result objects)
+  - The rule: no default ctors that construct collaborators; no “new XService()” in Application/Domain.
+  - The composition roots: Retention.Api Program.cs + Application DI extension(s)
+  - A short inventory of current offenders:
+    - Retention.Application/EvaluateRetentionService.cs (default ctor + engine creation)
+    - Retention.Application/Evaluation/RetentionEvaluationEngine.cs (static Create + internal wiring)
+    - Retention.Application/Validation/ValidationRuleChainFactory.cs (static factory builds rules via new)
+    - Retention.Domain/Services/RetentionPolicyEvaluator.cs (parameterless ctor)
+    - Retention.Domain/Services/GroupRetentionEvaluator.cs (parameterless ctor)
+- No functional changes.
 
-### 3.1 Composition root creates a concrete service instance
+ACCEPTANCE
+- Repo builds.
+- No tests need changing.
 
-* `src/Retention.Api/Program.cs` (line ~47): `builder.Services.AddSingleton(new EvaluateRetentionService());`
-
-### 3.2 API layer depends on a concrete Application type
-
-* `src/Retention.Api/Services/RetentionEvaluatorAdapter.cs` (line ~14): constructor takes `EvaluateRetentionService` instead of `IEvaluateRetentionService`
-
-### 3.3 Application service builds its own dependency graph (parameterless constructor)
-
-* `src/Retention.Application/EvaluateRetentionService.cs` (line ~31): `EvaluateRetentionService()` calls `new RetentionPolicyEvaluator(...)`, `new DefaultGroupRetentionEvaluator()`, `new TelemetryGroupRetentionEvaluator(...)`
-
-### 3.4 Application engine/factory builds pipeline with concrete instances
-
-* `src/Retention.Application/Evaluation/RetentionEvaluationEngine.cs` (line ~41): `CreateDefault(...)` constructs steps/builders/specs/mappers via `new ...`
-
-### 3.5 Static factory creates a “hard-coded” rule chain
-
-* `src/Retention.Application/Validation/ValidationRuleChainFactory.cs` (line ~7): creates rule list directly via `new ...`
-
-### 3.6 Domain services create other domain services (parameterless constructors)
-
-* `src/Retention.Domain/Services/RetentionPolicyEvaluator.cs` (line ~20): `RetentionPolicyEvaluator()` calls `new DefaultGroupRetentionEvaluator()`
-* `src/Retention.Domain/Services/GroupRetentionEvaluator.cs` (line ~21): `DefaultGroupRetentionEvaluator()` calls `new DefaultRankingStrategy()`, `new TopNSelectionStrategy()`
-
-### 3.7 Tests/benchmarks currently rely on removed constructors (must be updated)
-
-* Benchmarks/tests instantiate `new RetentionPolicyEvaluator()` and `new EvaluateRetentionService(...)` in multiple files.
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+```
 
 ---
 
-## 4) Requirements
+### SLICE-DIP-001 — Introduce centralized DI registration (no behaviour change yet)
 
-### DIP-REQ-0001 — Single composition root owns all wiring
+**Goal:** One place to register services; Program.cs becomes thin.
 
-**Statement:** The complete service graph for Retention evaluation must be registered via `IServiceCollection` at startup, with **no production code path** constructing its own service dependencies outside the composition root.
+**Model:** claude-sonnet — multi-file refactor with careful wiring.
 
-**Acceptance criteria**
+```text
+TASK (SLICE-DIP-001)
+Create DI extension(s) and move existing registrations into them WITHOUT changing behaviour.
 
-* Running `dotnet test` passes without any service needing a parameterless constructor to function.
-* No production constructors (Domain/Application) call `new` for other services/builders/mappers/specs/evaluators.
+FILES
+- Add: src/Retention.Application/DependencyInjection/ServiceCollectionExtensions.cs
+- Add: src/Retention.Domain/DependencyInjection/ServiceCollectionExtensions.cs
+- Update: src/Retention.Api/Program.cs
 
----
+STEPS
+1) In Retention.Domain, add:
+   - public static IServiceCollection AddRetentionDomain(this IServiceCollection services)
+   - (For now) only register the domain services already used at runtime OR leave empty but present.
 
-### DIP-REQ-0002 — Remove parameterless constructors that construct dependencies
+2) In Retention.Application, add:
+   - public static IServiceCollection AddRetentionApplication(this IServiceCollection services)
+   - Call services.AddRetentionDomain()
+   - Register the same concrete types Program.cs registers today (EvaluateRetentionService, RetentionEvaluationEngine, etc.) so behaviour is unchanged in this slice.
 
-**Statement:** Any constructor that exists only to build a default dependency graph must be removed or made non-production (e.g., `internal` for tests only, but preferred: remove entirely).
+3) Update Retention.Api/Program.cs to call builder.Services.AddRetentionApplication(); and remove the duplicated registrations from Program.cs.
 
-**Targets**
+CONSTRAINTS
+- Do not remove any constructors yet.
+- Do not change lifetimes unless required to preserve behaviour.
 
-* `EvaluateRetentionService()` in `Retention.Application`
-* `RetentionPolicyEvaluator()` in `Retention.Domain`
-* `DefaultGroupRetentionEvaluator()` in `Retention.Domain`
+ACCEPTANCE
+- Unit + integration tests pass unchanged.
 
-**Acceptance criteria**
-
-* The only public constructors on service types require abstractions as parameters.
-* No production code compiles that calls these removed parameterless constructors.
-
----
-
-### DIP-REQ-0003 — API layer depends only on abstractions
-
-**Statement:** `Retention.Api` must not depend on concrete Application services (except trivial DTOs). Controllers/adapters must depend on interfaces.
-
-**Targets**
-
-* `RetentionEvaluatorAdapter` must depend on `IEvaluateRetentionService` (not `EvaluateRetentionService`).
-
-**Acceptance criteria**
-
-* `RetentionEvaluatorAdapter` constructor parameter is `IEvaluateRetentionService`.
-* DI can resolve all controllers/services without referencing concrete `EvaluateRetentionService` types at injection sites.
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
 
-### DIP-REQ-0004 — Replace `CreateDefault` / internal composition with DI-resolved components
+### SLICE-DIP-002 — API consumes abstractions (stop depending on concrete EvaluateRetentionService)
 
-**Statement:** `RetentionEvaluationEngine` must not expose a “default builder” (`CreateDefault`) that constructs concrete dependencies. The engine must be created with dependencies provided by DI.
+**Goal:** `Retention.Api` depends on interfaces, not concrete application services.
 
-**Required design shape (one of)**
+**Model:** claude-sonnet — interface-first refactor with small surface area.
 
-* **Preferred:** `IRetentionEvaluationEngine` registered in DI; it takes an ordered list of steps and executes them.
-* **Acceptable:** `RetentionEvaluationEngine` built via a DI factory in the composition root (or extension method) that constructs the step list using DI-resolved dependencies (the only location allowed to `new` steps).
+```text
+TASK (SLICE-DIP-002)
+Refactor Retention.Api to depend on IEvaluateRetentionService rather than EvaluateRetentionService.
 
-**Acceptance criteria**
+FILES
+- Update: src/Retention.Api/Services/RetentionEvaluatorAdapter.cs
+- Update: src/Retention.Application/IEvaluateRetentionService.cs (if needed)
+- Update: src/Retention.Application/EvaluateRetentionService.cs (ctor signature if needed)
+- Update: src/Retention.Application/DependencyInjection/ServiceCollectionExtensions.cs
 
-* No `new ReferenceIndexBuilder()`, `new DefaultDeploymentValiditySpecification()`, `new DecisionLogAssembler()` etc. inside `RetentionEvaluationEngine` in production code.
-* Pipeline step ordering remains deterministic and explicit.
+STEPS
+1) Change RetentionEvaluatorAdapter ctor to take IEvaluateRetentionService (not EvaluateRetentionService).
+2) Ensure EvaluateRetentionService implements IEvaluateRetentionService (already true in this repo; keep it that way).
+3) In DI registration, register:
+   - services.AddScoped<IEvaluateRetentionService, EvaluateRetentionService>();
+   - (Do not register EvaluateRetentionService as the type consumers take)
+4) Ensure no controllers/services in Retention.Api request EvaluateRetentionService directly.
 
----
+ACCEPTANCE
+- No project in Retention.Api references EvaluateRetentionService concretely.
+- All tests pass.
 
-### DIP-REQ-0005 — Validation rules are registered and composed via DI
-
-**Statement:** The validation “chain” must be formed from DI registrations, not from a hard-coded static factory.
-
-**Constraints**
-
-* Rule order must be deterministic **without relying on DI registration order** (explicit ordering required).
-
-**Acceptance criteria**
-
-* `ValidationRuleChainFactory.CreateDefaultChain()` is removed or replaced with DI-based composition.
-* There is a deterministic ordering mechanism (e.g., `Order` property, or a separate ordered wrapper type).
-
----
-
-### DIP-REQ-0006 — Domain evaluation graph uses injected strategies/evaluators
-
-**Statement:** Domain services must not construct other domain services internally.
-
-**Targets**
-
-* `RetentionPolicyEvaluator` must require an `IGroupRetentionEvaluator` (already exists—remove default `new` path).
-* `DefaultGroupRetentionEvaluator` must require `IRetentionRankingStrategy` and `IRetentionSelectionStrategy` (already exists—remove default `new` path).
-
-**Acceptance criteria**
-
-* No parameterless constructors in `Retention.Domain/Services/*` create service dependencies.
-* Domain services can be instantiated entirely by DI registration.
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
 
-### DIP-REQ-0007 — Startup registration is expressed as standard .NET service registration
+### SLICE-DIP-003 — Domain services: remove parameterless constructors that “wire the graph”
 
-**Statement:** All production dependencies must be registered using standard `Microsoft.Extensions.DependencyInjection` patterns.
+**Goal:** `Retention.Domain` services only accept dependencies via ctor.
 
-**Required structure**
+**Model:** claude-sonnet — cross-test updates + safe constructor changes.
 
-* Introduce **one or more** extension methods:
+```text
+TASK (SLICE-DIP-003)
+Remove parameterless constructors from domain services and update tests accordingly.
 
-  * `Retention.Application`: `IServiceCollection AddRetentionApplication(this IServiceCollection services)`
-  * `Retention.Domain`: `IServiceCollection AddRetentionDomain(this IServiceCollection services)`
-* `Retention.Api/Program.cs` calls these extension methods and only contains top-level host wiring.
+FILES
+- Update: src/Retention.Domain/Services/RetentionPolicyEvaluator.cs
+- Update: src/Retention.Domain/Services/GroupRetentionEvaluator.cs
+- Update tests that call:
+  - new RetentionPolicyEvaluator()
+  - new GroupRetentionEvaluator()
 
-**Acceptance criteria**
+STEPS
+1) Remove/obsolete parameterless ctor from RetentionPolicyEvaluator.
+   - Keep only ctor that takes IGroupRetentionEvaluator.
+2) Remove/obsolete parameterless ctor from GroupRetentionEvaluator.
+   - Keep only ctor that takes IRetentionRankingStrategy + IRetentionSelectionStrategy.
+3) Update failing tests:
+   - Prefer building a ServiceProvider using AddRetentionApplication() and resolving the needed service,
+     OR explicitly construct using concrete defaults (DefaultRankingStrategy, TopNSelectionStrategy, DefaultGroupRetentionEvaluator, etc.).
+   - Keep changes minimal; do not rewrite unrelated tests.
 
-* `Program.cs` contains only composition-root concerns (host, auth, controllers, swagger, the `AddRetention*` calls).
-* All retention evaluation services resolve from `ServiceProvider` created by `Program`.
+ACCEPTANCE
+- No parameterless ctors remain on those two types.
+- All tests pass.
 
----
-
-### DIP-REQ-0008 — Explicit service lifetimes
-
-**Statement:** Registrations must define appropriate lifetimes based on statefulness.
-
-**Baseline lifetime rules**
-
-* **Singleton:** pure/stateless services (strategies, builders, specifications, mappers, assemblers, evaluators if stateless)
-* **Scoped:** request-bound boundary services (rare here unless per-request context is introduced)
-* **Transient:** only if the service holds per-call state (avoid if not necessary)
-
-**Acceptance criteria**
-
-* No “accidental singleton with mutable state” is introduced.
-* Services that are pure remain singleton to avoid churn.
-
----
-
-### DIP-REQ-0009 — Telemetry abstraction (optional but recommended for “full DIP”)
-
-**Statement:** Replace direct static telemetry calls with an injectable abstraction where telemetry is used as a collaborator.
-
-**Targets**
-
-* `RetentionTelemetry` (static) usage in `EvaluateRetentionService` and `TelemetryGroupRetentionEvaluator`
-
-**Acceptance criteria**
-
-* Application services depend on an interface (e.g., `IRetentionTelemetry`) rather than static calls.
-* Production wiring provides the concrete telemetry implementation; tests can provide a no-op.
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
 
-### DIP-REQ-0010 — API ActivitySource usage is injectable (optional)
+### SLICE-DIP-004 — Validation chain: move rule wiring to DI (kill static factory wiring)
 
-**Statement:** API services (`DatasetValidatorService`, `RetentionEvaluatorAdapter`) must not own static `ActivitySource`.
+**Goal:** Validation rules are composed at startup, not via `ValidationRuleChainFactory` constructing them ad-hoc.
 
-**Acceptance criteria**
+**Model:** claude-sonnet — ordering-sensitive refactor.
 
-* `ActivitySource` (or equivalent abstraction) is injected and registered in the composition root.
+```text
+TASK (SLICE-DIP-004)
+Stop using ValidationRuleChainFactory for building rule lists. Wire the ordered list via DI registration.
 
----
+FILES
+- Update: src/Retention.Application/Validation/ValidationRuleChainFactory.cs (deprecate or delete if unused)
+- Update: src/Retention.Application/Evaluation/Steps/ValidateInputsStep.cs (if needed)
+- Update: src/Retention.Application/DependencyInjection/ServiceCollectionExtensions.cs
+- Update tests that assume factory behaviour (if any)
 
-## 5) Registration map (minimum required)
+STEPS
+1) In AddRetentionApplication(), register an ORDERED IReadOnlyList<IValidationRule> matching the current factory order.
+   - Use a singleton factory: services.AddSingleton<IReadOnlyList<IValidationRule>>(sp => new IValidationRule[] { ... });
+   - Ensure NonNegativeReleasesToKeepRule is included in the correct position.
+2) Ensure ValidateInputsStep receives that list exactly (constructor already takes IReadOnlyList<IValidationRule>).
+3) Remove runtime usage of ValidationRuleChainFactory (leave file only if referenced by docs; otherwise delete).
 
-This is the minimum set of collaborators that must be DI-managed (names based on current code):
+ACCEPTANCE
+- No production code calls ValidationRuleChainFactory to build the rules.
+- Rule order is deterministic and matches previous behaviour.
+- Tests pass.
 
-### Domain
-
-* `IRetentionPolicyEvaluator` → `RetentionPolicyEvaluator`
-* `IGroupRetentionEvaluator` → `TelemetryGroupRetentionEvaluator` (decorator)
-
-  * inner concrete: `DefaultGroupRetentionEvaluator`
-* `IRetentionRankingStrategy` → `DefaultRankingStrategy`
-* `IRetentionSelectionStrategy` → `TopNSelectionStrategy`
-
-### Application
-
-* `IEvaluateRetentionService` → `EvaluateRetentionService`
-* `IRetentionEvaluationEngine` (new) → `RetentionEvaluationEngine`
-* `IReferenceIndexBuilder` → `ReferenceIndexBuilder`
-* `IDeploymentValiditySpecification` → `DefaultDeploymentValiditySpecification`
-* `IKeptReleaseMapper` → `KeptReleaseMapper`
-* `IDecisionLogAssembler` → `DecisionLogAssembler`
-* `IDiagnosticsCalculator` → `DiagnosticsCalculator`
-* Validation rules: register each concrete rule as `IValidationRule` (plus ordering metadata)
-
-### API
-
-* `IRetentionEvaluator` → `RetentionEvaluatorAdapter`
-* `IDatasetValidator` → `DatasetValidatorService`
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
 
-## 6) Enforcement requirements (to prevent regression)
+### SLICE-DIP-005 — Evaluation engine: DI supplies ordered pipeline steps (remove `Create()` wiring)
 
-### DIP-NFR-0001 — Architecture tests / static enforcement
+**Goal:** `RetentionEvaluationEngine` becomes a pure executor over injected steps; step ordering is composed at startup.
 
-**Statement:** Add an automated check to prevent re-introducing concrete coupling.
+**Model:** claude-opus — safest for a structural refactor with ordering constraints.
 
-**Minimum enforcement**
+```text
+TASK (SLICE-DIP-005)
+Refactor RetentionEvaluationEngine so it does not "new up" steps or collaborators.
 
-* A test that scans production assemblies for forbidden patterns, e.g.:
+FILES
+- Update: src/Retention.Application/Evaluation/RetentionEvaluationEngine.cs
+- Update: src/Retention.Application/DependencyInjection/ServiceCollectionExtensions.cs
+- Update: src/Retention.Application/EvaluateRetentionService.cs (temporarily adapt)
+- Update tests/benchmarks impacted
 
-  * “No `new` of types matching `*Evaluator`, `*Service`, `*Builder`, `*Mapper`, `*Assembler`, `*Specification`, `*Step` inside `Retention.Domain` or `Retention.Application`”
-  * “No references from Domain → Api”
-  * “No constructors without parameters on service types”
+STEPS
+1) In RetentionEvaluationEngine:
+   - Remove static Create(...) and any default/parameterless wiring.
+   - Constructor should take IReadOnlyList<IEvaluationStep> steps (or IEnumerable with materialization).
+   - Engine.Run executes steps in the provided order.
 
-**Acceptance criteria**
+2) In DI registration:
+   - Register each concrete step as singleton:
+     - ValidateInputsStep
+     - BuildReferenceIndexStep
+     - FilterInvalidDeploymentsStep
+     - EvaluatePolicyStep
+     - MapResultsStep
+     - BuildDecisionLogStep
+     - FinalizeResultStep
+   - Register an ORDERED IReadOnlyList<IEvaluationStep> that resolves those steps in the exact order above.
+     (Do NOT rely on “enumerable registration order” implicitly; build the list explicitly.)
 
-* CI fails if a new DIP violation is introduced.
+3) Ensure engine is registered and can be resolved.
 
-### DIP-NFR-0002 — No external contract changes
+ACCEPTANCE
+- No engine code constructs steps or factories.
+- Pipeline order is explicit in DI registration.
+- Tests pass.
 
-**Statement:** HTTP endpoints, request/response payloads, and validation semantics must remain unchanged.
-
-**Acceptance criteria**
-
-* Existing unit + integration + golden snapshot tests continue to pass.
-* No controller route or contract changes.
-
----
-
-## 7) Test requirements (must be added/updated)
-
-### DIP-TEST-0001 — DI composition test
-
-**Statement:** Add a test that builds the full service provider (via `AddRetentionDomain` + `AddRetentionApplication`) and resolves:
-
-* `IEvaluateRetentionService`
-* `IRetentionEvaluator` (API adapter)
-* Any pipeline engine type
-
-Then run a minimal evaluation with representative inputs to ensure the graph is complete.
-
-**Acceptance criteria**
-
-* Test fails if any required dependency is missing from DI registration.
-
-### DIP-TEST-0002 — Update benchmarks and unit tests to use DI or explicit constructors
-
-**Statement:** Any benchmark/test that relied on removed parameterless constructors must be updated.
-
-**Acceptance criteria**
-
-* `Retention.Benchmarks` compiles and runs.
-* Unit tests no longer call removed default constructors.
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
 
-## 8) Deliverable checklist
+### SLICE-DIP-006 — EvaluateRetentionService: remove default ctor + stop composing engine internally
 
-To consider DIP “done”, the following must be true:
+**Goal:** No more service-graph creation in application services.
 
-* No production code (Domain/Application) constructs service dependencies internally.
-* All service wiring is in the composition root (directly or via `AddRetention*` extension methods).
-* Step/rule ordering is deterministic by explicit mechanism.
-* Unit + integration + golden tests pass.
-* DI composition test exists and passes.
-* An enforcement mechanism exists to prevent regressions.
+**Model:** claude-sonnet — targeted refactor with test updates.
+
+```text
+TASK (SLICE-DIP-006)
+Make EvaluateRetentionService fully DI-driven.
+
+FILES
+- Update: src/Retention.Application/EvaluateRetentionService.cs
+- Update: src/Retention.Application/DependencyInjection/ServiceCollectionExtensions.cs
+- Update tests that instantiate EvaluateRetentionService directly
+
+STEPS
+1) Remove parameterless/default ctor from EvaluateRetentionService.
+2) Replace current ctor dependencies so it no longer calls RetentionEvaluationEngine.Create(...).
+   - Prefer ctor(EetentionEvaluationEngine engine) (or interface) and use it directly.
+3) Ensure DI registers:
+   - IEvaluateRetentionService -> EvaluateRetentionService
+   - RetentionEvaluationEngine as singleton (or scoped if you prefer; keep stateless)
+4) Update unit tests:
+   - Prefer resolving IEvaluateRetentionService from a ServiceProvider built with AddRetentionApplication().
+   - Keep behavioural assertions identical.
+
+ACCEPTANCE
+- No EvaluateRetentionService ctor creates other services/engines/policies via new.
+- All tests pass.
+
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
+
+---
+
+### SLICE-DIP-007 — Benchmarks project uses the same DI composition
+
+**Goal:** No “hand-wired” graph in benchmarks that drifts from production.
+
+**Model:** gpt-5 mini — mechanical updates with limited scope.
+
+```text
+TASK (SLICE-DIP-007)
+Update benchmarks to build a ServiceProvider using AddRetentionApplication() and resolve required services.
+
+FILES
+- Update: benchmarks/Retention.Benchmarks/* (as needed)
+- Possibly update: benchmarks/Retention.Benchmarks/Program.cs or benchmark setup
+
+STEPS
+- Replace direct construction of application/domain services with DI resolution.
+- Ensure benchmark still measures the same code paths.
+
+ACCEPTANCE
+- benchmarks project builds.
+- No production service graph wiring exists inside benchmarks (only DI composition).
+
+COMMAND
+- dotnet build benchmarks/Retention.Benchmarks/Retention.Benchmarks.csproj
+```
+
+---
+
+### SLICE-DIP-008 — Guardrails: architecture test to prevent regression
+
+**Goal:** Stop future re-introduction of “new-ing” service graphs.
+
+**Model:** claude-sonnet — reflection-based guardrails done carefully.
+
+```text
+TASK (SLICE-DIP-008)
+Add an architecture unit test enforcing DIP rules for service types.
+
+FILES
+- Add: tests/Retention.UnitTests/Architecture/DependencyInversionTests.cs (new)
+- Possibly add a small helper to build ServiceProvider via AddRetentionApplication()
+
+TEST IDEAS (implement at least these)
+1) Reflection: assert these types DO NOT have public parameterless ctors:
+   - Retention.Application.EvaluateRetentionService
+   - Retention.Application.Evaluation.RetentionEvaluationEngine
+   - Retention.Domain.Services.RetentionPolicyEvaluator
+   - Retention.Domain.Services.GroupRetentionEvaluator
+
+2) DI smoke: build ServiceProvider with AddRetentionApplication(), then resolve:
+   - IEvaluateRetentionService
+   - IRetentionEvaluator (API adapter not available in unit tests; only if referenced)
+   - RetentionEvaluationEngine
+   - IReadOnlyList<IEvaluationStep>
+   - IReadOnlyList<IValidationRule>
+
+ACCEPTANCE
+- Test fails if a parameterless ctor is reintroduced.
+- Unit tests pass.
+
+COMMAND
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+```
+
+---
+
+### SLICE-DIP-009 — Cleanup: remove dead wiring + make Program.cs purely composition root
+
+**Goal:** Remove obsolete factories/constructors and reduce drift risk.
+
+**Model:** gpt-5 mini — safe cleanup with strict scope.
+
+```text
+TASK (SLICE-DIP-009)
+Remove deprecated code paths that were kept during the refactor.
+
+FILES (conditional; only if unused now)
+- Delete or simplify: src/Retention.Application/Validation/ValidationRuleChainFactory.cs
+- Remove unused registrations for concrete types that should only be consumed via interfaces.
+- Ensure Program.cs contains only:
+  - framework wiring (controllers, swagger, etc.)
+  - builder.Services.AddRetentionApplication();
+  - builder.Services.AddScoped<IRetentionEvaluator, RetentionEvaluatorAdapter>(); etc.
+
+ACCEPTANCE
+- No unused code paths remain for old composition.
+- Tests pass.
+
+COMMANDS
+- dotnet test tests/Retention.UnitTests/Retention.UnitTests.csproj
+- dotnet test tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj
+```
 
 ---
