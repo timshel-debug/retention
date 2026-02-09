@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Retention.Application.Evaluation;
+using Retention.Application.Validation;
 using Retention.Domain.DependencyInjection;
 using Retention.Domain.Services;
 
@@ -18,6 +19,10 @@ public static class ServiceCollectionExtensions
     {
         // Register domain services
         services.AddRetentionDomain();
+
+        // Validation rules — ordered chain
+        services.AddSingleton<IReadOnlyList<IValidationRule>>(
+            _ => ValidationRuleChainFactory.CreateDefaultChain());
 
         // Application services — matches current Program.cs registrations
         services.AddSingleton<EvaluateRetentionService>();
