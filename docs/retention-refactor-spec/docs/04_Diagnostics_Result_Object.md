@@ -4,13 +4,15 @@
 Stop accumulating parallel lists in the orchestration method; make filtering return a first-class result containing both valid deployments and diagnostic entries.
 
 ## Design
+`FilteredDeploymentsResult` is the **single source of truth** for filtering outputs, stored as `RetentionEvaluationContext.FilteredDeployments`. All downstream steps consume this object exclusively — no parallel lists exist on the context.
+
 Introduce:
 - `Retention.Application.Evaluation.FilteredDeploymentsResult`
   - `IReadOnlyList<Deployment> ValidDeployments`
   - `IReadOnlyList<DecisionLogEntry> DiagnosticEntries`
   - `int InvalidExcludedCount`
 
-Filtering step returns this object.
+Filtering step (`FilterInvalidDeploymentsStep`) sets `context.FilteredDeployments` as its sole output.
 
 ## Requirements
 - DIAG-REQ-0001: Filtering MUST not throw for invalid references; it MUST exclude invalid deployments and record a diagnostic entry.

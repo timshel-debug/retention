@@ -18,6 +18,9 @@ public sealed class BuildDecisionLogStep : IEvaluationStep
 
     public void Execute(RetentionEvaluationContext context)
     {
+        if (context.FilteredDeployments is null)
+            throw new InvalidOperationException("Pipeline invariant violation: FilteredDeployments must be set by FilterInvalidDeploymentsStep before BuildDecisionLogStep.");
+
         var keptDecisions = context.DomainCandidates
             .Select(c => _assembler.BuildKeptEntry(c, context.ReleasesToKeep, context.CorrelationId))
             .ToList();
@@ -25,7 +28,7 @@ public sealed class BuildDecisionLogStep : IEvaluationStep
         context.KeptDecisionEntries = keptDecisions;
 
         context.AllDecisionEntries = keptDecisions
-            .Concat(context.DiagnosticDecisionEntries)
+            .Concat(context.FilteredDeployments.DiagnosticEntries)
             .OrderBy(d => d.DecisionType == "kept" ? 0 : 1)
             .ThenBy(d => d.ProjectId, StringComparer.Ordinal)
             .ThenBy(d => d.EnvironmentId, StringComparer.Ordinal)

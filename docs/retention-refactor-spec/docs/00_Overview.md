@@ -30,6 +30,7 @@ Each pattern has its own spec document in this bundle.
 - Validation exceptions: same error codes, and messages equivalent in meaning (prefer identical).
 - Null input lists treated as empty.
 - Invalid deployments excluded and logged as diagnostics with `DecisionReasonCodes.InvalidReference`.
+- Filtering outputs are carried as a single `FilteredDeploymentsResult` to prevent parallel-list drift.
 - Domain ranking tie-breakers (ADR-0003): `LatestDeployedAt desc`, then `Release.Created desc`, then `Release.Id asc (ordinal)`.
 - Final output ordering: deterministic by `ProjectId asc`, `EnvironmentId asc`, `Rank asc` for kept releases; decision list ordering kept-before-diagnostic then keys.
 

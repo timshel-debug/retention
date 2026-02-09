@@ -15,11 +15,10 @@ public static class ValidationRuleChainFactory
     /// </summary>
     public static IReadOnlyList<IValidationRule> CreateDefaultChain()
     {
-        return new IValidationRule[]
-        {
-            // 1. Non-negative releasesToKeep (checked before null coalescing in original)
-            // Note: this is checked in the shell before calling engine, so it's redundant
-            // in the pipeline but included for completeness.
+        return
+        [
+	        // 1. Non-negative releasesToKeep (checked before null coalescing in original)
+            new NonNegativeReleasesToKeepRule(),
             
             // 2. No null elements (same order as original)
             new NoNullElementsRule<Project>(ctx => ctx.Projects, "projects"),
@@ -33,7 +32,7 @@ public static class ValidationRuleChainFactory
             new NoDuplicateIdsRule<Environment>(
                 ctx => ctx.Environments, e => e.Id, "environment", ErrorCodes.DuplicateEnvironmentId),
             new NoDuplicateIdsRule<Release>(
-                ctx => ctx.Releases, r => r.Id, "release", ErrorCodes.DuplicateReleaseId),
-        };
+                ctx => ctx.Releases, r => r.Id, "release", ErrorCodes.DuplicateReleaseId)
+        ];
     }
 }

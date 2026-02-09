@@ -16,9 +16,14 @@ public sealed class EvaluatePolicyStep : IEvaluationStep
 
     public void Execute(RetentionEvaluationContext context)
     {
+        if (context.ReferenceIndex is null)
+            throw new InvalidOperationException("Pipeline invariant violation: ReferenceIndex must be set before EvaluatePolicyStep.");
+        if (context.FilteredDeployments is null)
+            throw new InvalidOperationException("Pipeline invariant violation: FilteredDeployments must be set by FilterInvalidDeploymentsStep before EvaluatePolicyStep.");
+
         context.DomainCandidates = _evaluator.Evaluate(
-            context.ReferenceIndex!.ReleasesById,
-            context.ValidDeployments,
+            context.ReferenceIndex.ReleasesById,
+            context.FilteredDeployments.ValidDeployments,
             context.ReleasesToKeep);
     }
 }

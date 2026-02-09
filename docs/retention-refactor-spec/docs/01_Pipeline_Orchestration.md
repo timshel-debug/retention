@@ -10,24 +10,26 @@ Introduce:
 - `Retention.Application.Evaluation.IEvaluationStep`
 - Concrete steps, executed in order:
 
-1. `NormalizeInputsStep`
-2. `ValidateInputsStep`
-3. `BuildReferenceIndexStep`
-4. `FilterInvalidDeploymentsStep`
-5. `EvaluatePolicyStep`
-6. `MapResultsStep`
-7. `BuildDecisionLogStep`
-8. `ComputeDiagnosticsStep`
-9. `FinalizeResultStep` (optional; can be part of previous steps)
+1. `ValidateInputsStep` — validates inputs via the rule chain
+2. `BuildReferenceIndexStep` — builds lookup dictionaries
+3. `FilterInvalidDeploymentsStep` — produces `FilteredDeploymentsResult` (Pattern 04)
+4. `EvaluatePolicyStep` — runs domain retention evaluator
+5. `MapResultsStep` — maps domain candidates to kept releases
+6. `BuildDecisionLogStep` — assembles combined decision log
+7. `FinalizeResultStep` — computes diagnostics and assembles `RetentionResult`
+
+**Implementation notes:**
+- `NormalizeInputsStep` is handled in the imperative shell (`EvaluateRetentionService`) before engine entry, since null-coalescing is a shell concern (Pattern 10).
+- `ComputeDiagnosticsStep` is merged into `FinalizeResultStep` for cohesion; the spec noted this was optional.
 
 ### Context object (minimum)
 `RetentionEvaluationContext` MUST include:
 - Inputs: `Projects`, `Environments`, `Releases`, `Deployments`, `ReleasesToKeep`, `CorrelationId`
-- Derived: `ReferenceIndex`, `ValidDeployments`, `DiagnosticDecisionEntries`
+- Derived: `ReferenceIndex`, `FilteredDeployments` (single result object — see Pattern 04)
 - Domain: `DomainCandidates`
 - Outputs-in-progress: `KeptReleases`, `KeptDecisionEntries`, `AllDecisionEntries`, `Diagnostics`, `Result`
 
-Context SHOULD be mutable for performance, but step boundaries MUST be explicit.
+Filtering outputs are carried as a single `FilteredDeploymentsResult` to prevent parallel-list drift. No separate `ValidDeployments`, `DiagnosticDecisionEntries`, or `InvalidExcludedCount` fields exist on the context.
 
 ## Requirements
 
@@ -37,7 +39,7 @@ Context SHOULD be mutable for performance, but step boundaries MUST be explicit.
 - PIPE-REQ-0003: Each step MUST be unit-testable without requiring other steps (via pre-built context).
 
 ### Non-functional
-- PIPE-NFR-0001: Pipeline refactor MUST NOT degrade performance by more than 10% on a representative dataset (define benchmark test).
+- PIPE-NFR-0001: Pipeline refactor MUST NOT degrade performance by more than 10% on a representative dataset. Benchmark: `dotnet run -c Release --project tests/Retention.Benchmarks/Retention.Benchmarks.csproj`
 - PIPE-NFR-0002: No additional allocations in tight loops unless justified; prefer reusing lists in context.
 
 ## Acceptance criteria

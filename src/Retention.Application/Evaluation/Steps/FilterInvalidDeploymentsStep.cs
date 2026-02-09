@@ -24,7 +24,10 @@ public sealed class FilterInvalidDeploymentsStep : IEvaluationStep
 
     public void Execute(RetentionEvaluationContext context)
     {
-        var index = context.ReferenceIndex!;
+        if (context.ReferenceIndex is null)
+            throw new InvalidOperationException("Pipeline invariant violation: ReferenceIndex must be set by BuildReferenceIndexStep before FilterInvalidDeploymentsStep.");
+
+        var index = context.ReferenceIndex;
         var validDeployments = new List<Deployment>();
         var diagnosticEntries = new List<DecisionLogEntry>();
 
@@ -47,8 +50,10 @@ public sealed class FilterInvalidDeploymentsStep : IEvaluationStep
             }
         }
 
-        context.ValidDeployments = validDeployments;
-        context.DiagnosticDecisionEntries = diagnosticEntries;
-        context.InvalidExcludedCount = diagnosticEntries.Count;
+        // Store in context as the single source of truth (Pattern 04)
+        context.FilteredDeployments = new FilteredDeploymentsResult(
+            validDeployments,
+            diagnosticEntries,
+            diagnosticEntries.Count);
     }
 }

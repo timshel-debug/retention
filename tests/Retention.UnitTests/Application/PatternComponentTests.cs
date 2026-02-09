@@ -6,6 +6,7 @@ using Retention.Application.Validation;
 using Retention.Application.Validation.Rules;
 using Retention.Application.Errors;
 using Retention.Application.Evaluation;
+using Retention.Application.Evaluation.Steps;
 using Retention.Domain.Entities;
 using Retention.Domain.Models;
 using Retention.Domain.Services;
@@ -143,8 +144,195 @@ public class PatternComponentTests
     }
 
     // ─────────────────────────────────────────────
+    // Pattern 04: Result Object / Notification (Diagnostics Accumulation)
+    // ─────────────────────────────────────────────
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_ValidDeployments_ReturnsInResultObject()
+    {
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var builder = new ReferenceIndexBuilder();
+        var index = builder.Build(
+            new[] { new Project("P1", "Proj") },
+            new[] { new Environment("E1", "Env") },
+            new[] { new Release("R1", "P1", "1.0", Date(2000, 1, 1)) });
+        var deployments = new[]
+        {
+            new Deployment("D1", "R1", "E1", Date(2000, 1, 2)),
+            new Deployment("D2", "R1", "E1", Date(2000, 1, 3)),
+        };
+
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = index,
+            Deployments = deployments,
+            ReleasesToKeep = 1,
+            CorrelationId = "test-corr"
+        };
+
+        step.Execute(context);
+
+        context.FilteredDeployments.Should().NotBeNull();
+        context.FilteredDeployments!.ValidDeployments.Should().HaveCount(2);
+        context.FilteredDeployments.DiagnosticEntries.Should().BeEmpty();
+        context.FilteredDeployments.InvalidExcludedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_InvalidDeployments_ExcludesAndRecordsDiagnostics()
+    {
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var builder = new ReferenceIndexBuilder();
+        var index = builder.Build(
+            new[] { new Project("P1", "Proj") },
+            new[] { new Environment("E1", "Env") },
+            new[] { new Release("R1", "P1", "1.0", Date(2000, 1, 1)) });
+        var deployments = new[]
+        {
+            new Deployment("D1", "R1", "E1", Date(2000, 1, 2)),          // Valid
+            new Deployment("D2", "R-MISSING", "E1", Date(2000, 1, 3)),   // Invalid
+            new Deployment("D3", "R1", "E-MISSING", Date(2000, 1, 4)),   // Invalid
+        };
+
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = index,
+            Deployments = deployments,
+            ReleasesToKeep = 1,
+            CorrelationId = "test-corr"
+        };
+
+        step.Execute(context);
+
+        context.FilteredDeployments.Should().NotBeNull();
+        context.FilteredDeployments!.ValidDeployments.Should().HaveCount(1);
+        context.FilteredDeployments.ValidDeployments[0].Id.Should().Be("D1");
+        context.FilteredDeployments.DiagnosticEntries.Should().HaveCount(2);
+        context.FilteredDeployments.InvalidExcludedCount.Should().Be(2);
+    }
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_InvalidDeployment_ProjectIdFromRelease()
+    {
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var builder = new ReferenceIndexBuilder();
+        var index = builder.Build(
+            new[] { new Project("P1", "Proj") },
+            Array.Empty<Environment>(), // No environments
+            new[] { new Release("R1", "P1", "1.0", Date(2000, 1, 1)) });
+        var deployments = new[] { new Deployment("D1", "R1", "E-MISSING", Date(2000, 1, 2)) };
+
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = index,
+            Deployments = deployments,
+            ReleasesToKeep = 1,
+            CorrelationId = "test-corr"
+        };
+
+        step.Execute(context);
+
+        context.FilteredDeployments!.DiagnosticEntries.Should().HaveCount(1);
+        context.FilteredDeployments.DiagnosticEntries[0].ProjectId.Should().Be("P1"); // From release
+    }
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_InvalidDeployment_ProjectIdUnknownWhenReleaseNotFound()
+    {
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var builder = new ReferenceIndexBuilder();
+        var index = builder.Build(
+            new[] { new Project("P1", "Proj") },
+            new[] { new Environment("E1", "Env") },
+            Array.Empty<Release>()); // No releases
+        var deployments = new[] { new Deployment("D1", "R-MISSING", "E1", Date(2000, 1, 2)) };
+
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = index,
+            Deployments = deployments,
+            ReleasesToKeep = 1,
+            CorrelationId = "test-corr"
+        };
+
+        step.Execute(context);
+
+        context.FilteredDeployments!.DiagnosticEntries.Should().HaveCount(1);
+        context.FilteredDeployments.DiagnosticEntries[0].ProjectId.Should().Be("unknown");
+    }
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_ResultObject_MatchesDiagnosticRequirements()
+    {
+        // DIAG-REQ-0001: Filtering MUST not throw for invalid references
+        // DIAG-REQ-0002: Diagnostic entry fields MUST match behavior
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var builder = new ReferenceIndexBuilder();
+        var index = builder.Build(
+            new[] { new Project("P1", "Proj") },
+            new[] { new Environment("E1", "Env") },
+            new[] { new Release("R1", "P1", "1.0", Date(2000, 1, 1)) });
+        var deployments = new[]
+        {
+            new Deployment("D1", "R-X", "E1", Date(2000, 1, 2)),
+        };
+
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = index,
+            Deployments = deployments,
+            ReleasesToKeep = 5,
+            CorrelationId = "test-xyz"
+        };
+
+        // Should not throw (DIAG-REQ-0001)
+        var act = () => step.Execute(context);
+        act.Should().NotThrow();
+
+        // Verify diagnostic fields (DIAG-REQ-0002)
+        var entry = context.FilteredDeployments!.DiagnosticEntries[0];
+        entry.ProjectId.Should().Be("unknown");
+        entry.EnvironmentId.Should().Be("E1");
+        entry.ReleaseId.Should().Be("R-X");
+        entry.Rank.Should().Be(0);
+        entry.LatestDeployedAt.Should().BeNull();
+        entry.ReasonCode.Should().Contain("invalid");
+        entry.CorrelationId.Should().Be("test-xyz");
+    }
+
+    // ─────────────────────────────────────────────
     // Pattern 02: Validation Rules
     // ─────────────────────────────────────────────
+
+    [Fact]
+    public void ValidationChain_NegativeReleasesToKeep_ThrowsWithCorrectCode()
+    {
+        var rules = ValidationRuleChainFactory.CreateDefaultChain();
+        var ctx = new ValidationContext(
+            new[] { new Project("P1", "Proj") },
+            new[] { new Environment("E1", "Env") },
+            Array.Empty<Release>(),
+            Array.Empty<Deployment>(),
+            releasesToKeep: -1);
+
+        var act = () =>
+        {
+            foreach (var rule in rules) rule.Validate(ctx);
+        };
+
+        act.Should().Throw<ValidationException>()
+            .Which.Code.Should().Be(ErrorCodes.NNegative);
+    }
 
     [Fact]
     public void ValidationChain_NullElement_ThrowsWithCorrectCode()
@@ -412,5 +600,45 @@ public class PatternComponentTests
         var result2 = engine.Evaluate(inputs);
 
         result1.Should().BeEquivalentTo(result2, opts => opts.WithStrictOrdering());
+    }
+
+    // ── Pattern 01 Pipeline Guards ────────────────────────────────
+
+    [Fact]
+    public void FilterInvalidDeploymentsStep_ThrowsWhenReferenceIndexMissing()
+    {
+        var spec = new DefaultDeploymentValiditySpecification();
+        var assembler = new DecisionLogAssembler();
+        var step = new FilterInvalidDeploymentsStep(spec, assembler);
+        var context = new RetentionEvaluationContext
+        {
+            Deployments = Array.Empty<Deployment>(),
+            ReferenceIndex = null,
+        };
+
+        var act = () => step.Execute(context);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*ReferenceIndex*");
+    }
+
+    [Fact]
+    public void EvaluatePolicyStep_ThrowsWhenFilteredDeploymentsMissing()
+    {
+        var evaluator = new RetentionPolicyEvaluator();
+        var step = new EvaluatePolicyStep(evaluator);
+        var context = new RetentionEvaluationContext
+        {
+            ReferenceIndex = new ReferenceIndex(
+                new Dictionary<string, Project>(),
+                new Dictionary<string, Environment>(),
+                new Dictionary<string, Release>()),
+            FilteredDeployments = null,
+        };
+
+        var act = () => step.Execute(context);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*FilteredDeployments*");
     }
 }

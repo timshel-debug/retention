@@ -51,15 +51,7 @@ public sealed class EvaluateRetentionService : IEvaluateRetentionService
         int releasesToKeep,
         string? correlationId = null)
     {
-        // REQ-0009: Validate n >= 0 (before null coalescing, matching original behavior)
-        if (releasesToKeep < 0)
-        {
-            throw new ValidationException(
-                ErrorCodes.NNegative,
-                $"Parameter 'releasesToKeep' must be >= 0, but was {releasesToKeep}.");
-        }
-
-        // Treat null collections as empty
+        // Treat null collections as empty (validation done in engine)
         projects ??= Array.Empty<Project>();
         environments ??= Array.Empty<Domain.Entities.Environment>();
         releases ??= Array.Empty<Release>();

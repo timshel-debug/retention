@@ -17,9 +17,12 @@ public sealed class FinalizeResultStep : IEvaluationStep
 
     public void Execute(RetentionEvaluationContext context)
     {
+        if (context.FilteredDeployments is null)
+            throw new InvalidOperationException("Pipeline invariant violation: FilteredDeployments must be set by FilterInvalidDeploymentsStep before FinalizeResultStep.");
+
         context.Diagnostics = _diagnosticsCalculator.Calculate(
             context.DomainCandidates,
-            context.InvalidExcludedCount,
+            context.FilteredDeployments.InvalidExcludedCount,
             context.KeptReleases);
 
         context.Result = new RetentionResult(

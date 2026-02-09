@@ -21,9 +21,7 @@ public sealed class RetentionEvaluationContext
 
     // ── Derived ──
     public ReferenceIndex? ReferenceIndex { get; set; }
-    public IReadOnlyList<Deployment> ValidDeployments { get; set; } = Array.Empty<Deployment>();
-    public List<DecisionLogEntry> DiagnosticDecisionEntries { get; set; } = new();
-    public int InvalidExcludedCount { get; set; }
+    public FilteredDeploymentsResult? FilteredDeployments { get; set; }
 
     // ── Domain ──
     public IReadOnlyList<ReleaseCandidate> DomainCandidates { get; set; } = Array.Empty<ReleaseCandidate>();

@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Retention.Api.IntegrationTests/Retention.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Retention.Benchmarks/Retention.Benchmarks.csproj" />
     <Project Path="tests/Retention.IntegrationTests/Retention.IntegrationTests.csproj" />
     <Project Path="tests/Retention.UnitTests/Retention.UnitTests.csproj" />
   </Folder>

@@ -51,7 +51,7 @@ public sealed class RetentionEvaluationEngine
     /// <summary>
     /// Evaluates retention and returns the result. Pure and deterministic.
     /// </summary>
-    public RetentionResult Evaluate(RetentionEvaluationInputs inputs)
+    public RetentionResult? Evaluate(RetentionEvaluationInputs inputs)
     {
         var context = new RetentionEvaluationContext
         {
@@ -68,6 +68,6 @@ public sealed class RetentionEvaluationEngine
             step.Execute(context);
         }
 
-        return context.Result!;
+        return context.Result;
     }
 }
