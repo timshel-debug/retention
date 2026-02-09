@@ -3,6 +3,7 @@ using FluentAssertions;
 using Retention.Application;
 using Retention.Application.Models;
 using Retention.Domain.Entities;
+using Retention.IntegrationTests.Helpers;
 using Environment = Retention.Domain.Entities.Environment;
 
 namespace Retention.IntegrationTests;
@@ -13,7 +14,7 @@ namespace Retention.IntegrationTests;
 /// </summary>
 public class EndToEndTests
 {
-    private readonly EvaluateRetentionService _service = new();
+    private readonly EvaluateRetentionService _service = TestEngineFactory.CreateService();
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true

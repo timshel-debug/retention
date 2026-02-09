@@ -556,9 +556,7 @@ public class PatternComponentTests
     [Fact]
     public void Engine_EvaluatesWithoutTelemetry()
     {
-        var evaluator = new RetentionPolicyEvaluator(
-            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
-        var engine = new RetentionEvaluationEngine(evaluator);
+        var engine = Helpers.TestEngineFactory.CreateEngine();
 
         var inputs = new RetentionEvaluationInputs(
             new[] { new Project("P1", "Proj") },
@@ -578,9 +576,7 @@ public class PatternComponentTests
     [Fact]
     public void Engine_IsPureAndDeterministic()
     {
-        var evaluator = new RetentionPolicyEvaluator(
-            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
-        var engine = new RetentionEvaluationEngine(evaluator);
+        var engine = Helpers.TestEngineFactory.CreateEngine();
 
         var inputs = new RetentionEvaluationInputs(
             new[] { new Project("P1", "Proj"), new Project("P2", "Proj2") },

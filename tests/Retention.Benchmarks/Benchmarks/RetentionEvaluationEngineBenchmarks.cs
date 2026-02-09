@@ -1,5 +1,10 @@
 using BenchmarkDotNet.Attributes;
 using Retention.Application.Evaluation;
+using Retention.Application.Evaluation.Steps;
+using Retention.Application.Indexing;
+using Retention.Application.Mapping;
+using Retention.Application.Specifications;
+using Retention.Application.Validation;
 using Retention.Domain.Services;
 
 namespace Retention.Benchmarks.Benchmarks;
@@ -23,7 +28,22 @@ public class RetentionEvaluationEngineBenchmarks
         // Use the pure evaluator (no telemetry decorator) to measure core logic only
         var evaluator = new RetentionPolicyEvaluator(
             new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
-        _engine = new RetentionEvaluationEngine(evaluator);
+
+        var validationRules = ValidationRuleChainFactory.CreateDefaultChain();
+        var assembler = new DecisionLogAssembler();
+
+        var steps = new IEvaluationStep[]
+        {
+            new ValidateInputsStep(validationRules),
+            new BuildReferenceIndexStep(new ReferenceIndexBuilder()),
+            new FilterInvalidDeploymentsStep(new DefaultDeploymentValiditySpecification(), assembler),
+            new EvaluatePolicyStep(evaluator),
+            new MapResultsStep(new KeptReleaseMapper()),
+            new BuildDecisionLogStep(assembler),
+            new FinalizeResultStep(new DiagnosticsCalculator()),
+        };
+
+        _engine = new RetentionEvaluationEngine(steps);
 
         // Pre-build inputs so allocation is not measured
         _smallInputs = BenchmarkDataFactory.Small();

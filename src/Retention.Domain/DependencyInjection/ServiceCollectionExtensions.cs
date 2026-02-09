@@ -15,8 +15,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IRetentionRankingStrategy, DefaultRankingStrategy>();
         services.AddSingleton<IRetentionSelectionStrategy, TopNSelectionStrategy>();
-        services.AddSingleton<IGroupRetentionEvaluator, DefaultGroupRetentionEvaluator>();
-        services.AddSingleton<IRetentionPolicyEvaluator, RetentionPolicyEvaluator>();
         return services;
     }
 }

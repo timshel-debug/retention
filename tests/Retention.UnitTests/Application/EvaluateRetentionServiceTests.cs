@@ -3,16 +3,14 @@ using Retention.Application;
 using Retention.Application.Errors;
 using Retention.Application.Models;
 using Retention.Domain.Entities;
-using Retention.Domain.Services;
+using Retention.UnitTests.Helpers;
 using Environment = Retention.Domain.Entities.Environment;
 
 namespace Retention.UnitTests.Application;
 
 public class EvaluateRetentionServiceTests
 {
-    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(
-        new RetentionPolicyEvaluator(
-            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy())));
+    private readonly IEvaluateRetentionService _service = TestEngineFactory.CreateService();
 
     #region Test Helpers
 

@@ -2,7 +2,7 @@ using FluentAssertions;
 using Retention.Application;
 using Retention.Application.Models;
 using Retention.Domain.Entities;
-using Retention.Domain.Services;
+using Retention.UnitTests.Helpers;
 using Environment = Retention.Domain.Entities.Environment;
 
 namespace Retention.UnitTests.Application;
@@ -14,9 +14,7 @@ namespace Retention.UnitTests.Application;
 /// </summary>
 public class GoldenSnapshotTests
 {
-    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(
-        new RetentionPolicyEvaluator(
-            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy())));
+    private readonly IEvaluateRetentionService _service = TestEngineFactory.CreateService();
 
     private static DateTimeOffset Date(int year, int month, int day, int hour = 0)
         => new(year, month, day, hour, 0, 0, TimeSpan.Zero);

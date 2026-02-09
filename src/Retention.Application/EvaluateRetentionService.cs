@@ -1,10 +1,8 @@
 using System.Diagnostics;
-using Retention.Application.Errors;
 using Retention.Application.Evaluation;
 using Retention.Application.Models;
 using Retention.Application.Observability;
 using Retention.Domain.Entities;
-using Retention.Domain.Services;
 
 namespace Retention.Application;
 
@@ -28,17 +26,10 @@ public sealed class EvaluateRetentionService : IEvaluateRetentionService
 {
     private readonly RetentionEvaluationEngine _engine;
 
-    public EvaluateRetentionService()
-        : this(new RetentionPolicyEvaluator(
-            new TelemetryGroupRetentionEvaluator(
-                new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()))))
+    public EvaluateRetentionService(RetentionEvaluationEngine engine)
     {
-    }
-
-    public EvaluateRetentionService(IRetentionPolicyEvaluator evaluator)
-    {
-        ArgumentNullException.ThrowIfNull(evaluator);
-        _engine = new RetentionEvaluationEngine(evaluator);
+        ArgumentNullException.ThrowIfNull(engine);
+        _engine = engine;
     }
 
     /// <summary>

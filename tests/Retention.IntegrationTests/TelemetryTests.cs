@@ -3,6 +3,7 @@ using FluentAssertions;
 using Retention.Application;
 using Retention.Application.Observability;
 using Retention.Domain.Entities;
+using Retention.IntegrationTests.Helpers;
 using Environment = Retention.Domain.Entities.Environment;
 
 namespace Retention.IntegrationTests;
@@ -14,7 +15,7 @@ namespace Retention.IntegrationTests;
 [Collection("Telemetry")]
 public class TelemetryTests : IDisposable
 {
-    private readonly EvaluateRetentionService _service = new();
+    private readonly EvaluateRetentionService _service = TestEngineFactory.CreateService();
     private readonly List<Activity> _capturedActivities = new();
     private readonly ActivityListener _listener;
 
