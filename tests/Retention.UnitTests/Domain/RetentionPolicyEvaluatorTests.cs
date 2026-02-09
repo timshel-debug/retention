@@ -7,7 +7,8 @@ namespace Retention.UnitTests.Domain;
 
 public class RetentionPolicyEvaluatorTests
 {
-    private readonly RetentionPolicyEvaluator _evaluator = new();
+    private readonly RetentionPolicyEvaluator _evaluator = new(
+        new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
 
     #region Test Helpers
 

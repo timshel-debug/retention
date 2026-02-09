@@ -26,11 +26,6 @@ public class DefaultGroupRetentionEvaluator : IGroupRetentionEvaluator
     private readonly IRetentionRankingStrategy _rankingStrategy;
     private readonly IRetentionSelectionStrategy _selectionStrategy;
 
-    public DefaultGroupRetentionEvaluator()
-        : this(new DefaultRankingStrategy(), new TopNSelectionStrategy())
-    {
-    }
-
     public DefaultGroupRetentionEvaluator(
         IRetentionRankingStrategy rankingStrategy,
         IRetentionSelectionStrategy selectionStrategy)

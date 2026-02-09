@@ -10,7 +10,9 @@ namespace Retention.UnitTests.Application;
 
 public class EvaluateRetentionServiceTests
 {
-    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(new RetentionPolicyEvaluator());
+    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(
+        new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy())));
 
     #region Test Helpers
 

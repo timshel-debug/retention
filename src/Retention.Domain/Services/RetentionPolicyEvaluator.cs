@@ -11,11 +11,6 @@ public sealed class RetentionPolicyEvaluator : IRetentionPolicyEvaluator
 {
     private readonly IGroupRetentionEvaluator _groupEvaluator;
 
-    public RetentionPolicyEvaluator()
-        : this(new DefaultGroupRetentionEvaluator())
-    {
-    }
-
     public RetentionPolicyEvaluator(IGroupRetentionEvaluator groupEvaluator)
     {
         _groupEvaluator = groupEvaluator ?? throw new ArgumentNullException(nameof(groupEvaluator));

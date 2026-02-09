@@ -532,7 +532,7 @@ public class PatternComponentTests
     [Fact]
     public void DefaultGroupEvaluator_ProducesCorrectCandidates()
     {
-        var evaluator = new DefaultGroupRetentionEvaluator();
+        var evaluator = new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy());
         var entries = new[]
         {
             new GroupEntry("R1", "1.0", Date(2000, 1, 1), Date(2000, 1, 3)),
@@ -556,7 +556,8 @@ public class PatternComponentTests
     [Fact]
     public void Engine_EvaluatesWithoutTelemetry()
     {
-        var evaluator = new RetentionPolicyEvaluator();
+        var evaluator = new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
         var engine = new RetentionEvaluationEngine(evaluator);
 
         var inputs = new RetentionEvaluationInputs(
@@ -577,7 +578,8 @@ public class PatternComponentTests
     [Fact]
     public void Engine_IsPureAndDeterministic()
     {
-        var evaluator = new RetentionPolicyEvaluator();
+        var evaluator = new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
         var engine = new RetentionEvaluationEngine(evaluator);
 
         var inputs = new RetentionEvaluationInputs(
@@ -625,7 +627,8 @@ public class PatternComponentTests
     [Fact]
     public void EvaluatePolicyStep_ThrowsWhenFilteredDeploymentsMissing()
     {
-        var evaluator = new RetentionPolicyEvaluator();
+        var evaluator = new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
         var step = new EvaluatePolicyStep(evaluator);
         var context = new RetentionEvaluationContext
         {

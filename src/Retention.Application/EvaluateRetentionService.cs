@@ -30,7 +30,8 @@ public sealed class EvaluateRetentionService : IEvaluateRetentionService
 
     public EvaluateRetentionService()
         : this(new RetentionPolicyEvaluator(
-            new TelemetryGroupRetentionEvaluator(new DefaultGroupRetentionEvaluator())))
+            new TelemetryGroupRetentionEvaluator(
+                new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()))))
     {
     }
 

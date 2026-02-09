@@ -14,7 +14,9 @@ namespace Retention.UnitTests.Application;
 /// </summary>
 public class GoldenSnapshotTests
 {
-    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(new RetentionPolicyEvaluator());
+    private readonly IEvaluateRetentionService _service = new EvaluateRetentionService(
+        new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy())));
 
     private static DateTimeOffset Date(int year, int month, int day, int hour = 0)
         => new(year, month, day, hour, 0, 0, TimeSpan.Zero);

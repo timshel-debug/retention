@@ -21,7 +21,8 @@ public class RetentionEvaluationEngineBenchmarks
     public void Setup()
     {
         // Use the pure evaluator (no telemetry decorator) to measure core logic only
-        var evaluator = new RetentionPolicyEvaluator();
+        var evaluator = new RetentionPolicyEvaluator(
+            new DefaultGroupRetentionEvaluator(new DefaultRankingStrategy(), new TopNSelectionStrategy()));
         _engine = new RetentionEvaluationEngine(evaluator);
 
         // Pre-build inputs so allocation is not measured

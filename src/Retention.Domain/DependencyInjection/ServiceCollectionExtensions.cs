@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Retention.Domain.Services;
 
 namespace Retention.Domain.DependencyInjection;
 
@@ -12,8 +13,10 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRetentionDomain(this IServiceCollection services)
     {
-        // Domain services will be registered here as parameterless ctors are removed.
-        // For now this is a placeholder that establishes the extension point.
+        services.AddSingleton<IRetentionRankingStrategy, DefaultRankingStrategy>();
+        services.AddSingleton<IRetentionSelectionStrategy, TopNSelectionStrategy>();
+        services.AddSingleton<IGroupRetentionEvaluator, DefaultGroupRetentionEvaluator>();
+        services.AddSingleton<IRetentionPolicyEvaluator, RetentionPolicyEvaluator>();
         return services;
     }
 }
