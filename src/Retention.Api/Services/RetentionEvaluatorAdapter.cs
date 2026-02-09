@@ -12,10 +12,10 @@ namespace Retention.Api.Services;
 /// </summary>
 public sealed class RetentionEvaluatorAdapter : IRetentionEvaluator
 {
-    private readonly EvaluateRetentionService _service;
+    private readonly IEvaluateRetentionService _service;
     private static readonly ActivitySource ActivitySource = new("Retention.Api", "1.0.0");
 
-    public RetentionEvaluatorAdapter(EvaluateRetentionService service)
+    public RetentionEvaluatorAdapter(IEvaluateRetentionService service)
     {
         _service = service;
     }
