@@ -28,22 +28,15 @@ Service classes MUST receive all collaborators via constructor injection. The on
 
 ## Current offenders
 
-| File | Issue |
-|------|-------|
-| `Retention.Application/EvaluateRetentionService.cs` | Default ctor `new`s `RetentionPolicyEvaluator`, `TelemetryGroupRetentionEvaluator`, `DefaultGroupRetentionEvaluator`. Also `new`s `RetentionEvaluationEngine` inside the 1-arg ctor. |
-| `Retention.Application/Evaluation/RetentionEvaluationEngine.cs` | 1-arg ctor `new`s `ValidationRuleChainFactory.CreateDefaultChain()`, `ReferenceIndexBuilder`, `DefaultDeploymentValiditySpecification`, `DecisionLogAssembler`, `KeptReleaseMapper`, `DiagnosticsCalculator`, and all 7 pipeline steps. |
-| `Retention.Application/Validation/ValidationRuleChainFactory.cs` | Static factory builds validation rule instances via `new`. |
-| `Retention.Domain/Services/RetentionPolicyEvaluator.cs` | Parameterless ctor `new`s `DefaultGroupRetentionEvaluator`. |
-| `Retention.Domain/Services/GroupRetentionEvaluator.cs` | Parameterless ctor `new`s `DefaultRankingStrategy` and `TopNSelectionStrategy`. |
+All offenders have been resolved. See slice completion status below.
 
 ## Slice plan
-- **SLICE-DIP-000**: This document (no functional changes)
-- **SLICE-DIP-001**: Introduce centralized DI registration extensions
-- **SLICE-DIP-002**: API consumes abstractions (`IEvaluateRetentionService`)
-- **SLICE-DIP-003**: Domain services remove parameterless constructors
-- **SLICE-DIP-004**: Validation chain wired via DI
-- **SLICE-DIP-005**: Evaluation engine receives DI-supplied steps
-- **SLICE-DIP-006**: `EvaluateRetentionService` fully DI-driven
-- **SLICE-DIP-007**: Benchmarks use same DI composition
-- **SLICE-DIP-008**: Architecture guardrail tests
-- **SLICE-DIP-009**: Cleanup dead wiring
+- **SLICE-DIP-000**: ✅ This document (no functional changes)
+- **SLICE-DIP-001**: ✅ Introduce centralized DI registration extensions
+- **SLICE-DIP-002**: ✅ API consumes abstractions (`IEvaluateRetentionService`)
+- **SLICE-DIP-003**: ✅ Domain services remove parameterless constructors
+- **SLICE-DIP-004**: ✅ Validation chain wired via DI
+- **SLICE-DIP-005+006**: ✅ Engine & EvaluateRetentionService fully DI-driven
+- **SLICE-DIP-007**: ✅ Benchmarks use same DI composition
+- **SLICE-DIP-008**: ✅ Architecture guardrail tests (reflection + DI smoke)
+- **SLICE-DIP-009**: ✅ Cleanup dead wiring, update README

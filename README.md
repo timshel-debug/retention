@@ -5,8 +5,15 @@ A .NET library that evaluates which releases to keep based on deployment history
 ## Quick Start
 
 ```csharp
+using Microsoft.Extensions.DependencyInjection;
 using Retention.Application;
+using Retention.Application.DependencyInjection;
 using Retention.Domain.Entities;
+
+// Set up DI container
+var services = new ServiceCollection();
+services.AddRetentionApplication();
+var provider = services.BuildServiceProvider();
 
 // Create input data
 var projects = new[] { new Project("Project-1", "My App") };
@@ -15,7 +22,7 @@ var releases = new[] { new Release("Release-1", "Project-1", "1.0.0", new DateTi
 var deployments = new[] { new Deployment("Deploy-1", "Release-1", "Env-1", new DateTimeOffset(2000, 1, 1, 10, 0, 0, TimeSpan.Zero)) };
 
 // Evaluate retention
-var service = new EvaluateRetentionService();
+var service = provider.GetRequiredService<IEvaluateRetentionService>();
 var result = service.EvaluateRetention(
     projects, 
     environments, 
